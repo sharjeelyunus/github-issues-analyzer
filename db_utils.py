@@ -51,11 +51,14 @@ def store_issue(issue, embedding):
     conn.close()
     return True
 
-def fetch_all_issues_with_embeddings():
-    """Fetch all issues with embeddings from the database."""
+def fetch_all_issues():
+    """Fetch all issues with from the database."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, github_id, embedding FROM issues")
+    cursor.execute("""
+        SELECT id, github_id, embedding, title, body
+        FROM issues
+    """)
     issues = cursor.fetchall()
     conn.close()
     return issues

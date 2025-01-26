@@ -32,4 +32,10 @@ def fetch_repo_labels():
     if response.status_code != 200:
         raise Exception(f"GitHub API error: {response.status_code} {response.text}")
 
-    return [label['name'] for label in response.json()]
+    labels = []
+    for label in response.json():
+        name = label['name']
+        description = label.get('description', f"This issue is related to {name}")
+        labels.append({"name": name, "description": description})
+
+    return labels
