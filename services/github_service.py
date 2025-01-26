@@ -22,3 +22,14 @@ def fetch_github_issues(state="open", per_page=30):
         page += 1
 
     return issues
+
+def fetch_repo_labels():
+    """Fetch labels for a repository."""
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/labels"
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(f"GitHub API error: {response.status_code} {response.text}")
+
+    return [label['name'] for label in response.json()]

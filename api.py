@@ -8,8 +8,8 @@ DB_FILE = "issues.db"
 
 app = FastAPI(
     title="GitHub Issues API",
-    description="Fetch analyzed GitHub issues and duplicates from the local database.",
-    version="1.0.0"
+    description="Fetch analyzed GitHub issues, duplicates, and labels from the local database.",
+    version="1.1.0"
 )
 
 # -----------------------------------------------------------------------------
@@ -19,13 +19,14 @@ def fetch_all_issues():
     """Fetch all issues from the database."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT github_id, title, body, duplicates FROM issues")
+    cursor.execute("SELECT github_id, title, body, duplicates, labels FROM issues")
     issues = cursor.fetchall()
     conn.close()
 
     result = []
-    for github_id, title, body, duplicates in issues:
+    for github_id, title, body, duplicates, labels in issues:
         duplicate_list = eval(duplicates)
+        label_list = eval(labels) if labels else []
         for duplicate in duplicate_list:
             duplicate["similarity"] = round(duplicate["similarity"] * 100, 2)
 
@@ -34,6 +35,7 @@ def fetch_all_issues():
             "title": title,
             "body": body,
             "duplicates": duplicate_list,
+            "labels": label_list,
         })
     return result
 
@@ -42,12 +44,13 @@ def fetch_issue_by_id(github_id: int):
     """Fetch a specific issue by GitHub ID."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT github_id, title, body, duplicates FROM issues WHERE github_id = ?", (github_id,))
+    cursor.execute("SELECT github_id, title, body, duplicates, labels FROM issues WHERE github_id = ?", (github_id,))
     issue = cursor.fetchone()
     conn.close()
 
     if issue:
         duplicate_list = eval(issue[3])
+        label_list = eval(issue[4]) if issue[4] else []
         for duplicate in duplicate_list:
             duplicate["similarity"] = round(duplicate["similarity"] * 100, 2)
 
@@ -56,6 +59,7 @@ def fetch_issue_by_id(github_id: int):
             "title": issue[1],
             "body": issue[2],
             "duplicates": duplicate_list,
+            "labels": label_list,
         }
     return None
 
@@ -78,7 +82,8 @@ def read_root():
         "endpoints": {
             "/issues": "List all issues.",
             "/issues/{github_id}": "Get details of a specific issue.",
-            "/duplicates": "List issues with potential duplicates."
+            "/duplicates": "List issues with potential duplicates.",
+            "/labels": "List all labels for issues."
         },
     }
 
@@ -101,6 +106,7 @@ def get_issue(github_id: int):
         return issue
     return {"error": "Issue not found"}
 
+
 @app.get("/duplicates")
 def get_duplicates():
     """Return issues that have potential duplicates along with metadata."""
@@ -110,4 +116,16 @@ def get_duplicates():
         "total": len(all_issues),
         "duplicates": len(duplicates),
         "issues": duplicates,
+    }
+
+
+@app.get("/labels")
+def get_labels():
+    """Return all issues with their labels."""
+    issues = fetch_all_issues()
+    labeled_issues = [issue for issue in issues if issue["labels"]]
+    return {
+        "total": len(issues),
+        "labeled_issues": len(labeled_issues),
+        "issues": labeled_issues,
     }

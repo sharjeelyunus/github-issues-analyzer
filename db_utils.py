@@ -14,7 +14,8 @@ def initialize_db():
             title TEXT,
             body TEXT,
             embedding BLOB,
-            duplicates TEXT
+            duplicates TEXT,
+            labels TEXT
         )
     """)
     conn.commit()
@@ -36,13 +37,14 @@ def store_issue(issue, embedding):
 
     # Insert into the database
     cursor.execute("""
-        INSERT INTO issues (github_id, title, body, embedding, duplicates)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO issues (github_id, title, body, embedding, duplicates, labels)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
         issue["number"],
         issue["title"],
         issue.get("body", ""),
         serialized_embedding,
+        "",
         ""
     ))
     conn.commit()
@@ -68,5 +70,17 @@ def update_duplicates(duplicates):
             SET duplicates = ?
             WHERE github_id = ?
         """, (str(duplicate_data), github_id))
+    conn.commit()
+    conn.close()
+
+def store_issue_labels(github_id, labels):
+    """Update labels for a specific issue."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE issues
+        SET labels = ?
+        WHERE github_id = ?
+    """, (str(labels), github_id))
     conn.commit()
     conn.close()

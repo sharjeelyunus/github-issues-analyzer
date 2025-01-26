@@ -1,11 +1,7 @@
 import pickle
 from db_utils import fetch_all_issues_with_embeddings, update_duplicates
-from sentence_transformers import util
 from config import DUPLICATE_THRESHOLD
-
-def compute_cosine_similarity(vec_a, vec_b):
-    """Compute the cosine similarity between two vectors."""
-    return float(util.cos_sim(vec_a, vec_b)[0][0])
+from utils import compute_cosine_similarity
 
 def find_duplicates():
     """Identify duplicates by analyzing embeddings."""
