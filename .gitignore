@@ -1,0 +1,27 @@
+# Byte-compiled / intermediate files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# SQLite database
+*.db
+
+# Virtual environments
+venv/
+env/
+.virtualenv/
+
+# Logs
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS files
+.DS_Store
+
+# VSCode settings
+.vscode/
