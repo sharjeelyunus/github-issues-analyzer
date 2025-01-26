@@ -94,7 +94,8 @@ def get_all_issues():
     issues = fetch_all_issues()
     return {
         "total": len(issues),
-        "duplicates": count_duplicates(issues),
+        "duplicates_count": count_duplicates(issues),
+        "labeled_issues_count": sum(1 for issue in issues if issue["labels"]),
         "issues": issues,
     }
 
@@ -114,7 +115,8 @@ def get_duplicates():
     duplicates = [issue for issue in all_issues if issue["duplicates"]]
     return {
         "total": len(all_issues),
-        "duplicates": len(duplicates),
+        "duplicates_count": len(duplicates),
+        "labeled_issues_count": sum(1 for issue in duplicates if issue["labels"]),
         "issues": duplicates,
     }
 
@@ -126,6 +128,6 @@ def get_labels():
     labeled_issues = [issue for issue in issues if issue["labels"]]
     return {
         "total": len(issues),
-        "labeled_issues": len(labeled_issues),
+        "labeled_issues_count": len(labeled_issues),
         "issues": labeled_issues,
     }

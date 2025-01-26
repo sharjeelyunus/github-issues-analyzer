@@ -132,7 +132,8 @@ github-issues-analyzer/
 ```json
 {
     "total": 10,
-    "duplicates": 2,
+    "duplicates_count": 2,
+    "labeled_issues_count": 5,
     "issues": [
         {
             "github_id": 1,

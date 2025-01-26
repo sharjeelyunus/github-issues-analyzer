@@ -10,3 +10,5 @@ DUPLICATE_THRESHOLD = float(os.getenv("DUPLICATE_THRESHOLD", 0.8))
 LABELS_THRESHOLD = float(os.getenv("LABELS_THRESHOLD", 0.5))
 DB_FILE = "issues.db"
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+LABELS_MODEL = "facebook/bart-large-mnli"
+EMBEDDING_SIM_THRESHOLD= float(os.getenv("EMBEDDING_SIM_THRESHOLD", 0.70))
