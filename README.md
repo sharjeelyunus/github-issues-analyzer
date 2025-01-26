@@ -151,6 +151,6 @@ Contributions are welcome! Feel free to fork this repository and submit a pull r
 
 ## Acknowledgments
 
-[Sentence Transformers](https://www.sbert.net/) for pre-trained models.
-[FastAPI](https://fastapi.tiangolo.com) for building the API.
-[GitHub API](https://docs.github.com/en/rest) for accessing issue data.
+- [Sentence Transformers](https://www.sbert.net/) for pre-trained models.
+- [FastAPI](https://fastapi.tiangolo.com) for building the API.
+- [GitHub API](https://docs.github.com/en/rest) for accessing issue data.
