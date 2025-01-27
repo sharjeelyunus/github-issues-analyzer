@@ -2,7 +2,7 @@ import requests
 from config import GITHUB_TOKEN, REPO_OWNER, REPO_NAME
 
 def fetch_github_issues(state="open", per_page=30):
-    """Fetch issues from the GitHub API."""
+    """Fetch issues from the GitHub API, including their existing labels."""
     page = 1
     issues = []
 
@@ -18,7 +18,16 @@ def fetch_github_issues(state="open", per_page=30):
         data = response.json()
         if not data:
             break
-        issues.extend(issue for issue in data if "pull_request" not in issue)
+
+        for issue in data:
+            if "pull_request" not in issue:
+                issues.append({
+                    "id": issue.get("id"),
+                    "number": issue.get("number"),
+                    "title": issue.get("title"),
+                    "body": issue.get("body"),
+                    "labels": [label["name"] for label in issue.get("labels", [])]
+                })
         page += 1
 
     return issues

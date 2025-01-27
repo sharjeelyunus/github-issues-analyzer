@@ -8,12 +8,12 @@ def find_duplicates():
     issues = fetch_all_issues()
 
     embeddings = {}
-    for issue_id, github_id, embedding, title, body in issues:
+    for issue_id, github_id, embedding, title, body, labels in issues:
         embeddings[github_id] = pickle.loads(embedding)
 
     duplicates = {}
 
-    for issue_id, github_id, embedding, title, body in issues:
+    for issue_id, github_id, embedding, title, body, labels in issues:
         current_embedding = pickle.loads(embedding)
         current_duplicates = []
 

@@ -35,28 +35,35 @@ def store_issue(issue, embedding):
     # Serialize embedding using pickle
     serialized_embedding = pickle.dumps(embedding)
 
+    # Store existing labels as a JSON array
+    import json
+    existing_labels = json.dumps(issue.get("labels", []))
+
     # Insert into the database
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO issues (github_id, title, body, embedding, duplicates, labels)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        issue["number"],
-        issue["title"],
-        issue.get("body", ""),
-        serialized_embedding,
-        "",
-        ""
-    ))
+        """,
+        (
+            issue["number"],
+            issue["title"],
+            issue.get("body", ""),
+            serialized_embedding,
+            "",
+            existing_labels
+        )
+    )
     conn.commit()
     conn.close()
     return True
 
 def fetch_all_issues():
-    """Fetch all issues with from the database."""
+    """Fetch all issues with from the database, including labels."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, github_id, embedding, title, body
+        SELECT id, github_id, embedding, title, body, labels
         FROM issues
     """)
     issues = cursor.fetchall()
