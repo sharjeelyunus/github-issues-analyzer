@@ -1,5 +1,6 @@
 import sqlite3
 import pickle
+from typing import List, Tuple
 
 DB_FILE = "issues.db"
 
@@ -15,13 +16,15 @@ def initialize_db():
             body TEXT,
             embedding BLOB,
             duplicates TEXT,
-            labels TEXT
+            labels TEXT,
+            priority TEXT,
+            severity TEXT
         )
     """)
     conn.commit()
     conn.close()
 
-def store_issue(issue, embedding):
+def store_issue(issue, embedding, priority=None, severity=None):
     """Store an issue in the database."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -42,8 +45,8 @@ def store_issue(issue, embedding):
     # Insert into the database
     cursor.execute(
         """
-        INSERT INTO issues (github_id, title, body, embedding, duplicates, labels)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO issues (github_id, title, body, embedding, duplicates, labels, priority, severity)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             issue["number"],
@@ -51,7 +54,9 @@ def store_issue(issue, embedding):
             issue.get("body", ""),
             serialized_embedding,
             "",
-            existing_labels
+            existing_labels,
+            priority,
+            severity
         )
     )
     conn.commit()
@@ -59,11 +64,11 @@ def store_issue(issue, embedding):
     return True
 
 def fetch_all_issues():
-    """Fetch all issues with from the database, including labels."""
+    """Fetch all issues from the database, including labels."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, github_id, embedding, title, body, labels
+        SELECT id, github_id, embedding, title, body, labels, priority, severity
         FROM issues
     """)
     issues = cursor.fetchall()
@@ -92,5 +97,28 @@ def store_issue_labels(github_id, labels):
         SET labels = ?
         WHERE github_id = ?
     """, (str(labels), github_id))
+    conn.commit()
+    conn.close()
+
+def update_priorities_and_severities(batch_results):
+    """
+    Update the priorities and severities for a batch of issues in the database.
+
+    Args:
+        batch_results: List of tuples with (github_id, priority, severity).
+    """
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    for github_id, priority, severity in batch_results:
+        cursor.execute(
+            """
+            UPDATE issues
+            SET priority = ?, severity = ?
+            WHERE github_id = ?
+            """,
+            (priority, severity, github_id),
+        )
+
     conn.commit()
     conn.close()

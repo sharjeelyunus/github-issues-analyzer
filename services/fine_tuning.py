@@ -51,7 +51,7 @@ def fine_tune_labels_model(
 
     # Validate and parse JSON labels
     validated_issues = []
-    for _, _, _, title, body, lbls_str in issues:
+    for _, _, _, title, body, lbls_str, _, _ in issues:
         if not lbls_str or lbls_str == "[]":
             continue
         try:

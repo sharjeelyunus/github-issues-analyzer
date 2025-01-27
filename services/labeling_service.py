@@ -10,7 +10,7 @@ from transformers import (
     BertForSequenceClassification,
 )
 
-from config import LABELS_MODEL, LABELS_THRESHOLD
+from config import ZERO_SHOT_MODEL, LABELS_THRESHOLD
 from db_utils import fetch_all_issues, store_issue_labels
 from services.fine_tuning import fine_tune_labels_model
 from services.github_service import fetch_repo_labels
@@ -37,12 +37,12 @@ def create_classifier_mps(model_name: str):
 
 
 def classify_with_fine_tuned_model(
-    issues: List[Tuple[int, int, str, str, str, str]],
+    issues: List[Tuple[int, int, str, str, str, str, str, str]],
     label_names: List[str],
     fine_tuned_model: BertForSequenceClassification,
     tokenizer: BertTokenizer,
     batch_size: int = 16
-) -> List[Tuple[int, int, str, str, str, str]]:
+) -> List[Tuple[int, int, str, str, str, str, str, str]]:
     """
     Classify issues using the fine-tuned model in batches. Returns any issues that
     did not meet the threshold for at least one label.
@@ -67,7 +67,7 @@ def classify_with_fine_tuned_model(
         batch = issues[start_idx:start_idx + batch_size]
 
         # Prepare texts for the batch
-        batch_texts = [f"{(title or '')}. {(body or '')}" for _, _, _, title, body, _ in batch]
+        batch_texts = [f"{(title or '')}. {(body or '')}" for _, _, _, title, body, _, _, _ in batch]
         encodings = tokenizer(
             batch_texts, truncation=True, padding=True, max_length=512, return_tensors="pt"
         ).to(device)
@@ -78,7 +78,7 @@ def classify_with_fine_tuned_model(
 
         # Determine assigned labels per issue
         for (issue, pred_scores) in zip(batch, predictions):
-            issue_id, github_id, _, title, body, _ = issue
+            issue_id, github_id, _, title, body, _, _, _ = issue
             assigned_labels = [
                 label_names[i] for i, score in enumerate(pred_scores) if score > LABELS_THRESHOLD
             ]
@@ -91,7 +91,7 @@ def classify_with_fine_tuned_model(
 
 
 def classify_with_zero_shot(
-    issues_without_labels: List[Tuple[int, int, str, str, str, str]],
+    issues_without_labels: List[Tuple[int, int, str, str, str, str, str, str]],
     enriched_labels: List[str],
     label_names: List[str],
     batch_size: int = 16
@@ -100,17 +100,17 @@ def classify_with_zero_shot(
     Classify issues without labels using zero-shot classification in batches.
     Only the single best label is assigned if above LABELS_THRESHOLD.
     """
-    classifier = create_classifier_mps(LABELS_MODEL)
+    classifier = create_classifier_mps(ZERO_SHOT_MODEL)
     print(f"Classifying {len(issues_without_labels)} issues with zero-shot classification...")
 
     for start_idx in tqdm(range(0, len(issues_without_labels), batch_size), desc="Zero-Shot Classification"):
         batch = issues_without_labels[start_idx:start_idx + batch_size]
-        batch_texts = [f"{(title or '')}. {(body or '')}".strip() for _, _, _, title, body, _ in batch]
+        batch_texts = [f"{(title or '')}. {(body or '')}".strip() for _, _, _, title, body, _, _, _ in batch]
 
         # Perform classification
         zsc_results = classifier(batch_texts, enriched_labels)
         for issue, result in zip(batch, zsc_results):
-            issue_id, github_id, _, title, body, _ = issue
+            issue_id, github_id, _, title, body, _, _, _ = issue
             zsc_scores = result["scores"]
             label_score_pairs = list(zip(label_names, zsc_scores))
             label_score_pairs.sort(key=lambda x: x[1], reverse=True)
@@ -146,7 +146,7 @@ def assign_labels_to_issues() -> None:
     fine_tuned_model, tokenizer = fine_tune_labels_model(issues, labels)
 
     # Filter issues to process only those without existing labels
-    issues_to_process = [issue for issue in issues if not issue[-1] or issue[-1] == "[]"]
+    issues_to_process = [issue for issue in issues if not issue[5] or issue[5] == "[]"]
     if not issues_to_process:
         print("No issues without labels to process.")
         return
