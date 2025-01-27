@@ -27,3 +27,4 @@ env/
 .vscode/
 
 results
+bert-base-uncased

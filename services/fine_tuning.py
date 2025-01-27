@@ -41,38 +41,48 @@ def compute_metrics(eval_pred):
     }
 
 
+from transformers import BertForSequenceClassification, BertTokenizer
+
 def fine_tune_model(
+    issues: List[Tuple],
+    labels: List[Dict[str, str]],
     train_ratio: float = 0.8,
     save_path: str = "bert-base-uncased",
+    ignore_mismatched_sizes: bool = True
 ) -> Tuple[BertForSequenceClassification, BertTokenizer]:
     """
-    Fine-tune a BERT-based model for multi-label classification on existing labeled issues.
+    Fine-tune a BERT-based model for multi-label classification on provided labeled issues.
+
+    Args:
+        issues: List of issues to fine-tune on.
+        labels: List of all possible labels for classification.
+        train_ratio: Ratio of training to validation data.
+        save_path: Path to save the fine-tuned model.
+        ignore_mismatched_sizes: Whether to ignore size mismatches when loading the model.
     """
-
-    print("Fetching labels from repository...")
-    labels = fetch_repo_labels()
     if not labels:
-        print("No labels found in the repository.")
-        return
-    issues = fetch_all_issues()
-    if not issues:
-        print("No issues found in the database.")
-        return
+        print("No labels provided. Skipping fine-tuning.")
+        return None, None
 
-    print("Preparing dataset for fine-tuning...")
+    if not issues:
+        print("No issues provided. Skipping fine-tuning.")
+        return None, None
+
+    print(f"Preparing dataset with {len(labels)} labels for fine-tuning...")
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
     label_names = [label["name"] for label in labels]
 
-    # Validate and parse JSON labels
     validated_issues = []
-    for _, _, _, title, body, lbls_str, _, _ in issues:
-        if not lbls_str or lbls_str == "[]":
-            continue
+    for issue in issues:
         try:
-            lbls_list = json.loads(lbls_str)
+            title = issue[3] if isinstance(issue, tuple) and len(issue) > 3 else issue.get("title", "")
+            body = issue[4] if isinstance(issue, tuple) and len(issue) > 4 else issue.get("body", "")
+            lbls_str = issue[5] if isinstance(issue, tuple) and len(issue) > 5 else issue.get("labels", "[]")
+            lbls_list = json.loads(lbls_str) if isinstance(lbls_str, str) else lbls_str
+
             if isinstance(lbls_list, list) and len(lbls_list) > 0:
                 validated_issues.append((title, body, lbls_list))
-        except json.JSONDecodeError:
+        except (IndexError, KeyError, json.JSONDecodeError):
             continue
 
     if not validated_issues:
@@ -84,6 +94,7 @@ def fine_tune_model(
         )
         return model, tokenizer
 
+    # Prepare the dataset
     texts = [f"{title}. {body}" for title, body, _ in validated_issues]
     targets = [
         [1.0 if label in lbls_list else 0.0 for label in label_names]
@@ -98,15 +109,18 @@ def fine_tune_model(
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
+    # Initialize the model with the correct number of labels
     model = BertForSequenceClassification.from_pretrained(
         "bert-base-uncased",
         num_labels=len(label_names),
         problem_type="multi_label_classification",
+        ignore_mismatched_sizes=ignore_mismatched_sizes,  # Handle size mismatches
     )
 
     device = get_device()
     model.to(device)
 
+    # Training arguments
     training_args = TrainingArguments(
         output_dir="./results",
         eval_strategy="epoch",
@@ -118,8 +132,10 @@ def fine_tune_model(
         logging_dir="./logs",
     )
 
+    # Data collator
     data_collator = DataCollatorWithPadding(tokenizer)
 
+    # Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -129,7 +145,8 @@ def fine_tune_model(
         compute_metrics=compute_metrics,
     )
 
-    print("Fine-tuning model...")
+    # Fine-tune the model
+    print("Fine-tuning the model...")
     trainer.train()
     print("Model fine-tuned.")
 

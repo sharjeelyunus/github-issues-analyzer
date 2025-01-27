@@ -165,7 +165,7 @@ def assign_labels_to_issues() -> None:
     except Exception as e:
         print(f"Failed to load fine-tuned model: {e}")
         print("Fine-tuning a new model...")
-        fine_tuned_model, tokenizer = fine_tune_model()
+        fine_tuned_model, tokenizer = fine_tune_model(issues, labels)
 
     # Filter issues to process only those without existing labels
     issues_to_process = []
