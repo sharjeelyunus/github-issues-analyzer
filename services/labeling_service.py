@@ -1,5 +1,4 @@
-import json
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple
 
 import torch
 from tqdm import tqdm
@@ -7,31 +6,15 @@ from transformers import (
     pipeline,
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    Trainer,
-    TrainingArguments,
     BertTokenizer,
     BertForSequenceClassification,
-    DataCollatorWithPadding,
 )
-from datasets import Dataset
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, precision_score, recall_score
 
 from config import LABELS_MODEL, LABELS_THRESHOLD
 from db_utils import fetch_all_issues, store_issue_labels
+from services.fine_tuning import fine_tune_labels_model
 from services.github_service import fetch_repo_labels
-
-
-def get_device() -> torch.device:
-    """
-    Return the best available device among CUDA, MPS, or CPU.
-    """
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        return torch.device("mps")
-    else:
-        return torch.device("cpu")
+from utils import get_device
 
 
 def create_classifier_mps(model_name: str):
@@ -44,137 +27,13 @@ def create_classifier_mps(model_name: str):
     device = get_device()
     model.to(device)
 
-    # We keep device_map='auto' for MPS compatibility:
     return pipeline(
         "zero-shot-classification",
         model=model,
         tokenizer=tokenizer,
-        device_map="auto",  # handle MPS automatically
+        device_map="auto",
         multi_label=True,
     )
-
-
-def compute_metrics(eval_pred):
-    """
-    Compute multi-label classification metrics: precision, recall, F1.
-    Uses a 0.5 threshold on sigmoid outputs.
-    """
-    logits, labels = eval_pred
-    logits = torch.tensor(logits)
-    labels = torch.tensor(labels)
-
-    # Sigmoid and threshold at 0.5
-    preds = (torch.sigmoid(logits) > 0.5).float()
-
-    preds_np = preds.numpy()
-    labels_np = labels.numpy()
-
-    # 'micro' average is common for multi-label tasks
-    f1 = f1_score(labels_np, preds_np, average="micro", zero_division=0)
-    precision = precision_score(labels_np, preds_np, average="micro", zero_division=0)
-    recall = recall_score(labels_np, preds_np, average="micro", zero_division=0)
-
-    return {
-        "f1": f1,
-        "precision": precision,
-        "recall": recall,
-    }
-
-
-def fine_tune_model(
-    issues: List[Tuple[int, int, str, str, str, str]],
-    labels: List[Dict[str, str]],
-    train_ratio: float = 0.8
-) -> Tuple[BertForSequenceClassification, BertTokenizer]:
-    """
-    Fine-tune a BERT-based model for multi-label classification on existing labeled issues.
-
-    Args:
-        issues: List of issues. Each issue is a tuple like (issue_id, github_id, ?, title, body, label_json).
-        labels: List of repository labels (dicts with 'name' and 'description').
-        train_ratio: Ratio of data to be used for training (remainder is for validation).
-
-    Returns:
-        A tuple of (fine_tuned_model, tokenizer).
-    """
-    print("Preparing dataset for fine-tuning...")
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    label_names = [label["name"] for label in labels]
-
-    # Filter issues that have actual labels
-    labeled_issues = [(title, body, lbls) for _, _, _, title, body, lbls in issues
-                      if lbls and lbls != "[]"]
-    if not labeled_issues:
-        print("No labeled issues found. Skipping fine-tuning.")
-        # Return a fresh model/tokenizer (or you could handle it differently)
-        model = BertForSequenceClassification.from_pretrained(
-            "bert-base-uncased",
-            num_labels=len(label_names),
-            problem_type="multi_label_classification",
-            ignore_mismatched_sizes=True
-        )
-        return model, tokenizer
-
-    texts = [f"{title}. {body}" for (title, body, lbls) in labeled_issues]
-    targets = [
-        [1.0 if label in json.loads(lbls) else 0.0 for label in label_names]
-        for (_, _, lbls) in labeled_issues
-    ]
-
-    # Tokenize the texts
-    encodings = tokenizer(texts, truncation=True, padding=True, max_length=512)
-    encodings["labels"] = torch.tensor(targets, dtype=torch.float)
-
-    # Create Dataset
-    dataset = Dataset.from_dict(encodings)
-
-    # Split into train / validation
-    train_size = int(len(dataset) * train_ratio)
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_size, val_size]
-    )
-
-    # Load model
-    model = BertForSequenceClassification.from_pretrained(
-        "bert-base-uncased",
-        num_labels=len(label_names),
-        problem_type="multi_label_classification",
-        ignore_mismatched_sizes=True  # Suppress initialization warnings
-    )
-
-    # Move model to best device
-    device = get_device()
-    model.to(device)
-
-    training_args = TrainingArguments(
-        output_dir="./results",
-        evaluation_strategy="epoch",
-        learning_rate=2e-5,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        num_train_epochs=3,
-        weight_decay=0.01,
-        logging_dir="./logs",
-    )
-
-    data_collator = DataCollatorWithPadding(tokenizer)
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-        data_collator=data_collator,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics,  # Track multi-label metrics
-    )
-
-    print("Fine-tuning model...")
-    trainer.train()
-    print("Model fine-tuned.")
-
-    return model, tokenizer
 
 
 def classify_with_fine_tuned_model(
@@ -213,10 +72,9 @@ def classify_with_fine_tuned_model(
             batch_texts, truncation=True, padding=True, max_length=512, return_tensors="pt"
         ).to(device)
 
-        # Disable gradient calculation for inference
         with torch.no_grad():
             outputs = fine_tuned_model(**encodings)
-            predictions = outputs.logits.sigmoid().cpu().numpy()  # shape: (batch_size, num_labels)
+            predictions = outputs.logits.sigmoid().cpu().numpy() 
 
         # Determine assigned labels per issue
         for (issue, pred_scores) in zip(batch, predictions):
@@ -226,7 +84,6 @@ def classify_with_fine_tuned_model(
             ]
             if assigned_labels:
                 store_issue_labels(github_id, assigned_labels)
-                print(f"Issue #{github_id} assigned labels by fine-tuned model: {', '.join(assigned_labels)}")
             else:
                 issues_without_labels.append(issue)
 
@@ -250,21 +107,18 @@ def classify_with_zero_shot(
         batch = issues_without_labels[start_idx:start_idx + batch_size]
         batch_texts = [f"{(title or '')}. {(body or '')}".strip() for _, _, _, title, body, _ in batch]
 
-        # Perform classification for the whole batch
+        # Perform classification
         zsc_results = classifier(batch_texts, enriched_labels)
-
-        # Each zsc_results[i] is a dict with 'labels' and 'scores'
         for issue, result in zip(batch, zsc_results):
             issue_id, github_id, _, title, body, _ = issue
             zsc_scores = result["scores"]
             label_score_pairs = list(zip(label_names, zsc_scores))
             label_score_pairs.sort(key=lambda x: x[1], reverse=True)
 
-            # Pick the single best label if above threshold
+            # Pick the single best label
             best_label, best_score = label_score_pairs[0]
             if best_score > LABELS_THRESHOLD:
                 store_issue_labels(github_id, [best_label])
-                print(f"Issue #{github_id} assigned label by zero-shot: {best_label}")
 
 
 def assign_labels_to_issues() -> None:
@@ -289,7 +143,7 @@ def assign_labels_to_issues() -> None:
         return
 
     # Fine-tune model with existing labeled issues
-    fine_tuned_model, tokenizer = fine_tune_model(issues, labels)
+    fine_tuned_model, tokenizer = fine_tune_labels_model(issues, labels)
 
     # Filter issues to process only those without existing labels
     issues_to_process = [issue for issue in issues if not issue[-1] or issue[-1] == "[]"]

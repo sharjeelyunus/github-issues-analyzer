@@ -107,6 +107,7 @@ github-issues-analyzer/
 │   ├── issue_model.py        # Pydantic models for issues
 ├── services/
 │   ├── duplicate_service.py  # Handles duplicate detection
+│   ├── fine_tuning.py         # Handles fine-tunings for models
 │   ├── github_service.py     # Handles GitHub API communication
 │   ├── labeling_service.py   # Handles issue label assignment
 ├── analyzer.py               # Script for fetching and analyzing GitHub issues
