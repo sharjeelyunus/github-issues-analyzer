@@ -12,7 +12,10 @@ from datasets import Dataset
 from torch.utils.data import random_split
 from sklearn.metrics import f1_score, precision_score, recall_score
 from typing import List, Tuple, Dict
+from db_utils import fetch_all_issues
+from services.github_service import fetch_repo_labels
 from utils import get_device
+
 
 def compute_metrics(eval_pred):
     """
@@ -37,14 +40,25 @@ def compute_metrics(eval_pred):
         "recall": recall,
     }
 
-def fine_tune_labels_model(
-    issues: List[Tuple[int, int, str, str, str, str]],
-    labels: List[Dict[str, str]],
+
+def fine_tune_model(
     train_ratio: float = 0.8,
+    save_path: str = "bert-base-uncased",
 ) -> Tuple[BertForSequenceClassification, BertTokenizer]:
     """
     Fine-tune a BERT-based model for multi-label classification on existing labeled issues.
     """
+
+    print("Fetching labels from repository...")
+    labels = fetch_repo_labels()
+    if not labels:
+        print("No labels found in the repository.")
+        return
+    issues = fetch_all_issues()
+    if not issues:
+        print("No issues found in the database.")
+        return
+
     print("Preparing dataset for fine-tuning...")
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
     label_names = [label["name"] for label in labels]
@@ -119,4 +133,19 @@ def fine_tune_labels_model(
     trainer.train()
     print("Model fine-tuned.")
 
+    # Save the model and tokenizer
+    model.save_pretrained(save_path)
+    tokenizer.save_pretrained(save_path)
+    print(f"Model saved to {save_path}.")
+
+    return model, tokenizer
+
+
+def load_fine_tuned_model(model_path="bert-base-uncased"):
+    """
+    Load a previously fine-tuned model and tokenizer from disk.
+    """
+    print(f"Loading fine-tuned model from {model_path}...")
+    tokenizer = BertTokenizer.from_pretrained(model_path)
+    model = BertForSequenceClassification.from_pretrained(model_path)
     return model, tokenizer

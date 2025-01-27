@@ -1,4 +1,5 @@
-from services.github_service import fetch_github_issues
+from services.fine_tuning import fine_tune_model
+from services.github_service import fetch_github_issues, fetch_repo_labels
 from services.duplicate_service import find_duplicates
 from db_utils import initialize_db, store_issue
 from services.labeling_service import assign_labels_to_issues
@@ -22,6 +23,10 @@ def sync_issues():
             new_count += 1
 
     print(f"Imported {new_count} new issues.")
+    
+    fetch_repo_labels()
+    fine_tune_model()
+
     predict_priority_and_severity()
     find_duplicates()
     assign_labels_to_issues()

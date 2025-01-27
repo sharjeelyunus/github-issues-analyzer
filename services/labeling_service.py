@@ -12,7 +12,7 @@ from transformers import (
 
 from config import ZERO_SHOT_MODEL, LABELS_THRESHOLD
 from db_utils import fetch_all_issues, store_issue_labels
-from services.fine_tuning import fine_tune_labels_model
+from services.fine_tuning import fine_tune_model, load_fine_tuned_model
 from services.github_service import fetch_repo_labels
 from utils import get_device
 
@@ -41,7 +41,7 @@ def classify_with_fine_tuned_model(
     label_names: List[str],
     fine_tuned_model: BertForSequenceClassification,
     tokenizer: BertTokenizer,
-    batch_size: int = 16
+    batch_size: int = 16,
 ) -> List[Tuple[int, int, str, str, str, str, str, str]]:
     """
     Classify issues using the fine-tuned model in batches. Returns any issues that
@@ -63,24 +63,35 @@ def classify_with_fine_tuned_model(
 
     issues_without_labels = []
 
-    for start_idx in tqdm(range(0, len(issues), batch_size), desc="Fine-Tune Classification"):
-        batch = issues[start_idx:start_idx + batch_size]
+    for start_idx in tqdm(
+        range(0, len(issues), batch_size), desc="Fine-Tune Classification"
+    ):
+        batch = issues[start_idx : start_idx + batch_size]
 
         # Prepare texts for the batch
-        batch_texts = [f"{(title or '')}. {(body or '')}" for _, _, _, title, body, _, _, _ in batch]
+        batch_texts = [
+            f"{(title or '')}. {(body or '')}"
+            for _, _, _, title, body, _, _, _ in batch
+        ]
         encodings = tokenizer(
-            batch_texts, truncation=True, padding=True, max_length=512, return_tensors="pt"
+            batch_texts,
+            truncation=True,
+            padding=True,
+            max_length=512,
+            return_tensors="pt",
         ).to(device)
 
         with torch.no_grad():
             outputs = fine_tuned_model(**encodings)
-            predictions = outputs.logits.sigmoid().cpu().numpy() 
+            predictions = outputs.logits.sigmoid().cpu().numpy()
 
         # Determine assigned labels per issue
-        for (issue, pred_scores) in zip(batch, predictions):
+        for issue, pred_scores in zip(batch, predictions):
             issue_id, github_id, _, title, body, _, _, _ = issue
             assigned_labels = [
-                label_names[i] for i, score in enumerate(pred_scores) if score > LABELS_THRESHOLD
+                label_names[i]
+                for i, score in enumerate(pred_scores)
+                if score > LABELS_THRESHOLD
             ]
             if assigned_labels:
                 store_issue_labels(github_id, assigned_labels)
@@ -94,18 +105,26 @@ def classify_with_zero_shot(
     issues_without_labels: List[Tuple[int, int, str, str, str, str, str, str]],
     enriched_labels: List[str],
     label_names: List[str],
-    batch_size: int = 16
+    batch_size: int = 16,
 ) -> None:
     """
     Classify issues without labels using zero-shot classification in batches.
     Only the single best label is assigned if above LABELS_THRESHOLD.
     """
     classifier = create_classifier_mps(ZERO_SHOT_MODEL)
-    print(f"Classifying {len(issues_without_labels)} issues with zero-shot classification...")
+    print(
+        f"Classifying {len(issues_without_labels)} issues with zero-shot classification..."
+    )
 
-    for start_idx in tqdm(range(0, len(issues_without_labels), batch_size), desc="Zero-Shot Classification"):
-        batch = issues_without_labels[start_idx:start_idx + batch_size]
-        batch_texts = [f"{(title or '')}. {(body or '')}".strip() for _, _, _, title, body, _, _, _ in batch]
+    for start_idx in tqdm(
+        range(0, len(issues_without_labels), batch_size),
+        desc="Zero-Shot Classification",
+    ):
+        batch = issues_without_labels[start_idx : start_idx + batch_size]
+        batch_texts = [
+            f"{(title or '')}. {(body or '')}".strip()
+            for _, _, _, title, body, _, _, _ in batch
+        ]
 
         # Perform classification
         zsc_results = classifier(batch_texts, enriched_labels)
@@ -126,32 +145,48 @@ def assign_labels_to_issues() -> None:
     Main entry point for fetching issues, training a fine-tuned model,
     classifying new issues, and fallback to zero-shot classification if needed.
     """
+
     print("Fetching labels from repository...")
     labels = fetch_repo_labels()
     if not labels:
         print("No labels found in the repository.")
         return
 
-    print(f"Fetched {len(labels)} labels.")
-    enriched_labels = [f"{label['name']}: {label['description']}" for label in labels]
-    label_names = [label["name"] for label in labels]
-
-    print("Fetching issues from the database...")
     issues = fetch_all_issues()
     if not issues:
         print("No issues found in the database.")
         return
 
-    # Fine-tune model with existing labeled issues
-    fine_tuned_model, tokenizer = fine_tune_labels_model(issues, labels)
+    print(f"Processing {len(issues)} issues...")
+
+    # Check if fine-tuned model exists, otherwise fine-tune
+    try:
+        fine_tuned_model, tokenizer = load_fine_tuned_model()
+    except Exception as e:
+        print(f"Failed to load fine-tuned model: {e}")
+        print("Fine-tuning a new model...")
+        fine_tuned_model, tokenizer = fine_tune_model()
 
     # Filter issues to process only those without existing labels
-    issues_to_process = [issue for issue in issues if not issue[5] or issue[5] == "[]"]
+    issues_to_process = []
+    for issue in issues:
+        # Handle both dictionaries and tuples
+        labels_field = (
+            issue[5]
+            if isinstance(issue, tuple) and len(issue) > 5
+            else issue.get("labels", "[]")
+        )
+        if not labels_field or labels_field == "[]":
+            issues_to_process.append(issue)
+
     if not issues_to_process:
         print("No issues without labels to process.")
         return
 
     print(f"Classifying {len(issues_to_process)} issues...")
+
+    enriched_labels = [f"{label['name']}: {label['description']}" for label in labels]
+    label_names = [label["name"] for label in labels]
 
     # Classify issues using the fine-tuned model
     issues_without_labels = classify_with_fine_tuned_model(
