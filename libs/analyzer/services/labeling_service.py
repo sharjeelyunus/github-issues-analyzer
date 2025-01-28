@@ -11,9 +11,9 @@ from transformers import (
 )
 
 from config import ZERO_SHOT_MODEL, LABELS_THRESHOLD
-from db_utils import fetch_all_issues, store_issue_labels
-from services.fine_tuning import fine_tune_model, load_fine_tuned_model
-from services.github_service import fetch_repo_labels
+from libs.analyzer.db_utils import fetch_all_issues, store_issue_labels
+from libs.analyzer.services.fine_tuning import fine_tune_model, load_fine_tuned_model
+from libs.analyzer.services.github_service import fetch_repo_labels
 from utils import get_device
 
 

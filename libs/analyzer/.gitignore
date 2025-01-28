@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+*.egg-info/
+.dist/
+build/
+.eggs/
+wheels/
+
+# Virtual environments
+.env/
+.venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Logs and temporary files
+*.log
+*.out
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+
+# Models and large binary files
+models/libs/analyzer/models/label_prediction_model_v1/
+*.bin
+
+# Datasets
+libs/dataset/dataset_files/
+*.db
+*.csv
+
+# Build files
+*.spec
+*.lock
+
+# Pytest cache
+.pytest_cache/
+
+# Hugging Face cache
+.huggingface/

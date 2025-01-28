@@ -1,16 +1,17 @@
-from services.fine_tuning import fine_tune_model, load_fine_tuned_model
-from services.github_service import fetch_github_issues, fetch_repo_labels
-from services.duplicate_service import find_duplicates
-from db_utils import initialize_db, load_dataset_for_analysis, store_issue
-from services.labeling_service import assign_labels_to_issues
-from services.priority_severity_service import predict_priority_and_severity
-from utils import extract_labels_from_issues, get_embedding
+# libs/analyzer/analyzer.py
 
-# Initialize
-initialize_db()
+from libs.analyzer.services.fine_tuning import fine_tune_model, load_fine_tuned_model
+from libs.analyzer.services.github_service import fetch_github_issues, fetch_repo_labels
+from libs.analyzer.services.duplicate_service import find_duplicates
+from libs.analyzer.db_utils import initialize_db, store_issue
+from libs.analyzer.services.labeling_service import assign_labels_to_issues
+from libs.analyzer.services.priority_severity_service import predict_priority_and_severity
+from utils import get_embedding
 
 def sync_issues():
     """Fetch issues from GitHub, fine-tune the model on repo issues, and process them."""
+    initialize_db()
+    
     print("Loading pre-fine-tuned model for label prediction...")
     model, _ = load_fine_tuned_model()
     if not model:

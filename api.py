@@ -1,11 +1,7 @@
 import sqlite3
 from fastapi import FastAPI
 import ast
-
-# -----------------------------------------------------------------------------
-# CONFIGURATION
-# -----------------------------------------------------------------------------
-DB_FILE = "issues.db"
+from config import DB_FILE
 
 app = FastAPI(
     title="GitHub Issues API",

@@ -1,5 +1,5 @@
 from transformers import pipeline
-from db_utils import fetch_all_issues, update_priorities_and_severities
+from libs.analyzer.db_utils import fetch_all_issues, update_priorities_and_severities
 from tqdm import tqdm
 
 def predict_priority_and_severity():

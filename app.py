@@ -1,12 +1,6 @@
-import os
 import subprocess
-import analyzer
-
-# -----------------------------------------------------------------------------
-# CONFIGURATION
-# -----------------------------------------------------------------------------
-API_HOST = "127.0.0.1"
-API_PORT = 8000
+import analyze_issues
+from config import API_HOST, API_PORT
 
 # -----------------------------------------------------------------------------
 # MAIN SCRIPT
@@ -14,7 +8,7 @@ API_PORT = 8000
 def main():
     # 1. Run the analysis (fetch GitHub issues and compute duplicates)
     print("Starting analysis...")
-    analyzer.sync_issues()
+    analyze_issues.sync_issues()
 
     # 2. Start the API server
     print(f"Starting the API server at http://{API_HOST}:{API_PORT}...")

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "analyzer"
+version = "0.1.0"
+description = "A library for analyzing GitHub issues, fine-tuning models, and predicting priorities/severities."
+authors = [{ name = "Sharjeel Yunus", email = "sharjeel924@gmail.com" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "sentence-transformers",
+    "torch",
+    "python-dotenv",
+]
+
+[tool.setuptools.packages.find]
+where = ["libs/analyzer"]

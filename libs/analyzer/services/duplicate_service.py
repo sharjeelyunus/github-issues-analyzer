@@ -1,5 +1,5 @@
 import pickle
-from db_utils import fetch_all_issues, update_duplicates
+from libs.analyzer.db_utils import fetch_all_issues, update_duplicates
 from config import DUPLICATE_THRESHOLD
 from utils import compute_cosine_similarity
 

@@ -1,6 +1,5 @@
-import os
-from db_utils import load_dataset_for_analysis
-from services.fine_tuning import fine_tune_model
+from libs.analyzer.db_utils import load_dataset_for_analysis
+from libs.analyzer.services.fine_tuning import fine_tune_model
 from utils import extract_labels_from_issues
 
 

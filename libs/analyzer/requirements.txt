@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+requests
+sentence-transformers
+torch
+dotenv

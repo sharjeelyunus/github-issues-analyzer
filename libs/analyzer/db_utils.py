@@ -1,11 +1,9 @@
 import sqlite3
 import pickle
 import json
+from config import DB_FILE
 from libs.dataset.dataset.database_manager import DatabaseManager
 from utils import get_embedding
-
-DB_FILE = "issues.db"
-
 
 def initialize_db():
     """Initialize the database."""
