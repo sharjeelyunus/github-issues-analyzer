@@ -13,3 +13,4 @@ MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 ZERO_SHOT_MODEL = "facebook/bart-large-mnli"
 EMBEDDING_SIM_THRESHOLD= float(os.getenv("EMBEDDING_SIM_THRESHOLD", 0.70))
 DATASET_REPOS_COUNT = int(os.getenv("DATASET_REPOS", 20))
+LABELS_MODEL_DIR = "models/label_prediction_model_v1"

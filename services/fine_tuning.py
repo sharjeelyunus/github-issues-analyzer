@@ -1,5 +1,6 @@
 # fine_tuning.py
 import json
+import os
 import torch
 from transformers import (
     BertTokenizer,
@@ -12,8 +13,7 @@ from datasets import Dataset
 from torch.utils.data import random_split
 from sklearn.metrics import f1_score, precision_score, recall_score
 from typing import List, Tuple, Dict
-from db_utils import fetch_all_issues
-from services.github_service import fetch_repo_labels
+from config import LABELS_MODEL_DIR
 from utils import get_device
 
 
@@ -41,66 +41,72 @@ def compute_metrics(eval_pred):
     }
 
 
-from transformers import BertForSequenceClassification, BertTokenizer
-
-def fine_tune_model(
-    issues: List[Tuple],
-    labels: List[Dict[str, str]],
-    train_ratio: float = 0.8,
-    save_path: str = "bert-base-uncased",
-    ignore_mismatched_sizes: bool = True
-) -> Tuple[BertForSequenceClassification, BertTokenizer]:
+def validate_and_prepare_issues(
+    issues: List[Dict], label_names: List[str]
+) -> Tuple[List[str], List[List[float]]]:
     """
-    Fine-tune a BERT-based model for multi-label classification on provided labeled issues.
+    Validate and prepare issues for fine-tuning.
 
     Args:
-        issues: List of issues to fine-tune on.
-        labels: List of all possible labels for classification.
-        train_ratio: Ratio of training to validation data.
-        save_path: Path to save the fine-tuned model.
-        ignore_mismatched_sizes: Whether to ignore size mismatches when loading the model.
+        issues: List of issues to validate and prepare.
+        label_names: List of all possible labels.
+
+    Returns:
+        Tuple of (texts, targets) for training.
     """
-    if not labels:
-        print("No labels provided. Skipping fine-tuning.")
-        return None, None
-
-    if not issues:
-        print("No issues provided. Skipping fine-tuning.")
-        return None, None
-
-    print(f"Preparing dataset with {len(labels)} labels for fine-tuning...")
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    label_names = [label["name"] for label in labels]
-
     validated_issues = []
+
     for issue in issues:
         try:
-            title = issue[3] if isinstance(issue, tuple) and len(issue) > 3 else issue.get("title", "")
-            body = issue[4] if isinstance(issue, tuple) and len(issue) > 4 else issue.get("body", "")
-            lbls_str = issue[5] if isinstance(issue, tuple) and len(issue) > 5 else issue.get("labels", "[]")
+            title = issue.get("title", "")
+            body = issue.get("body", "")
+            lbls_str = issue.get("labels", "[]")
             lbls_list = json.loads(lbls_str) if isinstance(lbls_str, str) else lbls_str
 
-            if isinstance(lbls_list, list) and len(lbls_list) > 0:
+            if isinstance(lbls_list, list) and lbls_list:
                 validated_issues.append((title, body, lbls_list))
-        except (IndexError, KeyError, json.JSONDecodeError):
+        except (KeyError, json.JSONDecodeError):
             continue
 
     if not validated_issues:
-        print("No valid labeled issues found. Skipping fine-tuning.")
-        model = BertForSequenceClassification.from_pretrained(
-            "bert-base-uncased",
-            num_labels=len(label_names),
-            problem_type="multi_label_classification",
-        )
-        return model, tokenizer
+        raise ValueError("No valid labeled issues found.")
 
-    # Prepare the dataset
+    # Prepare texts and targets
     texts = [f"{title}. {body}" for title, body, _ in validated_issues]
     targets = [
         [1.0 if label in lbls_list else 0.0 for label in label_names]
         for _, _, lbls_list in validated_issues
     ]
 
+    return texts, targets
+
+
+from transformers import AutoConfig
+
+def fine_tune_model(
+    issues: List[Dict],
+    labels: List[Dict[str, str]],
+    model=None,
+    train_ratio: float = 0.8,
+    save_path: str = LABELS_MODEL_DIR,
+) -> Tuple[BertForSequenceClassification, BertTokenizer]:
+    """
+    Fine-tune a BERT-based model for multi-label classification on labeled issues.
+    """
+    if not labels:
+        raise ValueError("No labels provided. Fine-tuning aborted.")
+
+    if not issues:
+        raise ValueError("No issues provided. Fine-tuning aborted.")
+
+    print(f"Preparing dataset with {len(labels)} labels for fine-tuning...")
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    label_names = [label["name"] for label in labels]
+
+    # Validate and prepare issues
+    texts, targets = validate_and_prepare_issues(issues, label_names)
+
+    # Tokenize the dataset
     encodings = tokenizer(texts, truncation=True, padding=True, max_length=512)
     encodings["labels"] = torch.tensor(targets, dtype=torch.float)
 
@@ -109,13 +115,21 @@ def fine_tune_model(
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-    # Initialize the model with the correct number of labels
-    model = BertForSequenceClassification.from_pretrained(
-        "bert-base-uncased",
-        num_labels=len(label_names),
-        problem_type="multi_label_classification",
-        ignore_mismatched_sizes=ignore_mismatched_sizes,  # Handle size mismatches
-    )
+    # Ensure the model has the correct number of labels
+    if model is None:
+        print("No preloaded model provided. Initializing a new model...")
+        model = BertForSequenceClassification.from_pretrained(
+            "bert-base-uncased",
+            num_labels=len(label_names),
+            problem_type="multi_label_classification",
+        )
+    else:
+        # Check if the model's `num_labels` matches the current dataset
+        config = model.config
+        if config.num_labels != len(label_names):
+            print(f"Adjusting model for {len(label_names)} labels...")
+            config.num_labels = len(label_names)
+            model = BertForSequenceClassification(config)
 
     device = get_device()
     model.to(device)
@@ -158,11 +172,21 @@ def fine_tune_model(
     return model, tokenizer
 
 
-def load_fine_tuned_model(model_path="bert-base-uncased"):
+def load_fine_tuned_model(model_path=LABELS_MODEL_DIR):
     """
-    Load a previously fine-tuned model and tokenizer from disk.
+    Load a previously fine-tuned model and tokenizer from the specified directory.
+    Raises an exception if the model is not found.
     """
-    print(f"Loading fine-tuned model from {model_path}...")
-    tokenizer = BertTokenizer.from_pretrained(model_path)
-    model = BertForSequenceClassification.from_pretrained(model_path)
-    return model, tokenizer
+    if not os.path.exists(model_path) or not os.path.isdir(model_path):
+        raise FileNotFoundError(
+            f"Model directory '{model_path}' not found. Please ensure the model is fine-tuned and saved."
+        )
+
+    try:
+        print(f"Loading model and tokenizer from '{model_path}'...")
+        tokenizer = BertTokenizer.from_pretrained(model_path)
+        model = BertForSequenceClassification.from_pretrained(model_path)
+        print(f"Model and tokenizer successfully loaded from '{model_path}'.")
+        return model, tokenizer
+    except Exception as e:
+        raise Exception(f"Failed to load model from '{model_path}': {e}")

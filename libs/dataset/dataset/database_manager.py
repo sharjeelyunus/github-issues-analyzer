@@ -53,3 +53,33 @@ class DatabaseManager:
         Close the database connection.
         """
         self.connection.close()
+
+    def fetch_all_dataset_issues(self):
+        """
+        Fetch all issues from the dataset table.
+        """
+        query = "SELECT id, repo, title, body, labels, priority, severity FROM dataset"
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+
+        # Convert rows to a list of dictionaries
+        issues = []
+        for row in rows:
+            issues.append(
+                {
+                    "id": row[0],
+                    "repo": row[1],
+                    "title": row[2],
+                    "body": row[3],
+                    "labels": row[4].split(",") if row[4] else [],
+                    "priority": row[5],
+                    "severity": row[6],
+                }
+            )
+        return issues
+
+    def close(self):
+        """
+        Close the database connection.
+        """
+        self.connection.close()
