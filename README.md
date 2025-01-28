@@ -65,6 +65,14 @@ The database will be automatically initialized when you run the script for the f
 
 ## Usage
 
+### Fine tune the model
+
+First, fine-tune the model by running the `fine_tune_dataset.py` script. This script will fine-tune the model on the dataset and save the model to the `models` directory.
+
+```bash
+python fine_tune_dataset.py
+```
+
 ### Running the App
 
 Run the `app.py` script to start the analyzer and API server:
@@ -75,10 +83,10 @@ python app.py
 
 ### Running the Analyzer
 
-Run the `analyzer.py` script to fetch, analyze, and store issues:
+Run the `analyze_issues.py` script to fetch, analyze, and store issues:
 
 ```bash
-python analyzer.py
+python analyze_issues.py
 ```
 
 This process dynamically fetches issue titles and descriptions from the database, ensures labels are assigned based on the most relevant and up-to-date context, and predicts priorities and severities for each issue.
@@ -98,33 +106,6 @@ Access the API at <http://127.0.0.1:8000>. The API includes the following endpoi
 - GET /duplicates: List issues that have potential duplicates.
 - GET /labels: List issues with their assigned labels.
 - GET /priorities-severities: List all issues with their predicted priority and severity.
-
----
-
-## Project Structure
-
-```plaintext
-github-issues-analyzer/
-├── models/
-│   ├── issue_model.py        # Pydantic models for issues
-├── services/
-│   ├── duplicate_service.py  # Handles duplicate detection
-│   ├── fine_tuning.py         # Handles fine-tunings for models
-│   ├── github_service.py     # Handles GitHub API communication
-│   ├── labeling_service.py   # Handles issue label assignment
-├── analyzer.py               # Script for fetching and analyzing GitHub issues
-├── db_utils.py               # Handles database operations
-├── utils.py                  # Shared utility functions for embeddings and similarity
-├── api.py                    # FastAPI-based API for accessing issue data
-├── app.py                    # Main entry point for running the analyzer and API
-├── config.py                 # Configuration settings
-├── .env                      # Environment variables (not included in the repo)
-├── issues.db                 # SQLite database (created on first run)
-├── requirements.txt          # Python dependencies
-├── .gitignore                # Git ignore file
-└── README.md                 # Project documentation
-
-```
 
 ---
 
