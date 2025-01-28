@@ -2,7 +2,7 @@ import sqlite3
 
 
 class DatabaseManager:
-    def __init__(self, db_name="github_issues.db"):
+    def __init__(self, db_name):
         self.connection = sqlite3.connect(db_name)
         self.cursor = self.connection.cursor()
         self.create_table()
@@ -12,7 +12,7 @@ class DatabaseManager:
         Create a table to store GitHub issues if it doesn't already exist.
         """
         query = """
-        CREATE TABLE IF NOT EXISTS issues (
+        CREATE TABLE IF NOT EXISTS dataset (
             id INTEGER PRIMARY KEY,
             repo TEXT NOT NULL,
             title TEXT NOT NULL,
@@ -30,7 +30,7 @@ class DatabaseManager:
         Insert a list of issues into the database.
         """
         query = """
-        INSERT OR IGNORE INTO issues (id, repo, title, body, labels, priority, severity)
+        INSERT OR IGNORE INTO dataset (id, repo, title, body, labels, priority, severity)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         data = [
