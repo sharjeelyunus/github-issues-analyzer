@@ -1,7 +1,15 @@
-def get_issue_priority(labels):
+from libs.dataset.dataset.utils import (
+    compute_engagement_metric,
+    get_issue_metric,
+    predict_with_model,
+)
+
+
+def determine_priority(issue):
     """
-    Determine issue priority based on labels.
+    Determine the priority of an issue using multiple factors.
     """
+    labels = [label["name"] for label in issue.get("labels", [])]
     priority_mapping = {
         "priority: high": "high",
         "priority: medium": "medium",
@@ -12,63 +20,22 @@ def get_issue_priority(labels):
         "critical": "high",
         "urgent": "high",
     }
-
-    for label in labels:
-        normalized_label = label.lower()
-        if normalized_label in priority_mapping:
-            return priority_mapping[normalized_label]
-    return "unknown"
-
-def get_engagement_priority(issue):
-    """
-    Determine priority based on comments and reactions.
-    """
-    comments = issue.get("comments", 0)
-    reactions = issue.get("reactions", {}).get("total_count", 0)
-    engagement_score = comments + reactions
-
-    if engagement_score > 50:
-        return "high"
-    elif engagement_score > 10:
-        return "medium"
-    else:
-        return "low"
-
-
-def is_recent_issue(created_at, updated_at):
-    """
-    Determine priority based on creation and last update time.
-    """
-    from datetime import datetime
-    try:
-        created_date = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ")
-        updated_date = datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%SZ")
-        now = datetime.utcnow()
-
-        if (now - updated_date).days <= 7:
-            return "high"
-        elif (now - created_date).days <= 30:
-            return "medium"
-        else:
-            return "low"
-    except Exception as e:
-        print(f"Error parsing dates for issue: {e}")
-        return "unknown"
-
-
-def determine_priority(issue):
-    """
-    Determine the priority of an issue using multiple factors.
-    """
-    labels = [label["name"] for label in issue.get("labels", [])]
-
-    priority_from_labels = get_issue_priority(labels)
-
-    if priority_from_labels != "unknown":
+    # Determine priority from labels
+    priority_from_labels = get_issue_metric(labels, priority_mapping)
+    if priority_from_labels:
         return priority_from_labels
 
-    priority_from_engagement = get_engagement_priority(issue)
-    if priority_from_engagement == "high":
-        return "high"
+    # Determine priority from engagement
+    priority_from_engagement = compute_engagement_metric(
+        issue,
+        {
+            100: "high",
+            30: "medium",
+            5: "low",
+        },
+    )
+    if priority_from_engagement:
+        return priority_from_engagement
 
-    return is_recent_issue(issue["created_at"], issue["updated_at"])
+    # Predict priority using AI if no other methods work
+    return predict_with_model(issue, {0: "low", 1: "medium", 2: "high"})
