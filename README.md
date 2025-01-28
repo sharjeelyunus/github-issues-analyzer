@@ -65,6 +65,14 @@ The database will be automatically initialized when you run the script for the f
 
 ## Usage
 
+### Generate Dataset
+
+First, generate the dataset by running the `generate_dataset.py` script. This script fetches top github repository issues and stores them in the database. This dataset will be used for fine-tuning the model.
+
+```bash
+python generate_dataset.py
+```
+
 ### Fine tune the model
 
 First, fine-tune the model by running the `fine_tune_dataset.py` script. This script will fine-tune the model on the dataset and save the model to the `models` directory.
