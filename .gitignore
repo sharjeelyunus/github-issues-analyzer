@@ -28,4 +28,4 @@ env/
 
 results
 bert-base-uncased
-models/label_prediction_model_v1/
+models

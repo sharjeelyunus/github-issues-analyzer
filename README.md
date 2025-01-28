@@ -75,7 +75,7 @@ python generate_dataset.py
 
 ### Fine tune the model
 
-First, fine-tune the model by running the `fine_tune_dataset.py` script. This script will fine-tune the model on the dataset and save the model to the `models` directory.
+Now, fine-tune the model by running the `fine_tune_dataset.py` script. This script will fine-tune the model on the dataset and save the model to the `models` directory.
 
 ```bash
 python fine_tune_dataset.py
