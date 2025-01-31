@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKENS = os.getenv("GITHUB_TOKENS").split(",") if os.getenv("GITHUB_TOKENS") else [GITHUB_TOKEN]
 REPO_OWNER = os.getenv("REPO_OWNER")
 REPO_NAME = os.getenv("REPO_NAME")
 DUPLICATE_THRESHOLD = 0.8

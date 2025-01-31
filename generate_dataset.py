@@ -1,11 +1,11 @@
-from config import DATASET_REPOS_COUNT, DB_FILE, GITHUB_TOKEN
+from config import DATASET_REPOS_COUNT, DB_FILE, GITHUB_TOKENS
 from libs.dataset.dataset.github_fetcher import GitHubFetcher
 from libs.dataset.dataset.issue_cleaner import clean_issues
 from libs.dataset.dataset.database_manager import DatabaseManager
 
 def generate_dataset():
     # Initialize GitHubFetcher
-    fetcher = GitHubFetcher(GITHUB_TOKEN)
+    fetcher = GitHubFetcher(GITHUB_TOKENS)
 
     # Fetch the top repositories globally
     print("Fetching top repositories globally...")
