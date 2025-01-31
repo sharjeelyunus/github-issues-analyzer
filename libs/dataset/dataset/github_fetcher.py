@@ -17,19 +17,41 @@ class GitHubFetcher:
 
     def fetch_top_repositories(self, count: int = 10):
         """
-        Fetch the top repositories globally by stars.
+        Fetch the top repositories globally by stars, handling pagination efficiently.
+        Uses parallel requests for large counts to optimize speed.
         """
         url = f"{self.BASE_URL}/search/repositories"
-        params = {
-            "q": "stars:>0",
-            "sort": "stars",
-            "order": "desc",
-            "per_page": count,
-        }
-        response = requests.get(url, headers=self.headers, params=params)
-        if response.status_code != 200:
-            raise Exception(f"Failed to fetch repositories: {response.json()}")
-        return response.json().get("items", [])
+        max_per_page = 100  # GitHub API limit
+        per_page = min(count, max_per_page)
+        total_pages = -(-count // per_page)
+
+        repositories = []
+        futures = []
+
+        with ThreadPoolExecutor() as executor:
+            for page in range(1, total_pages + 1):
+                params = {
+                    "q": "stars:>0",
+                    "sort": "stars",
+                    "order": "desc",
+                    "per_page": per_page,
+                    "page": page
+                }
+                futures.append(executor.submit(requests.get, url, headers=self.headers, params=params))
+
+            for future in as_completed(futures):
+                response = future.result()
+                if response.status_code != 200:
+                    raise Exception(f"Failed to fetch repositories: {response.json()}")
+
+                items = response.json().get("items", [])
+                if not items:
+                    break
+                
+                repositories.extend(items)
+
+        return repositories[:count]
+
 
     def _fetch_page(self, repo: str, page: int):
         """
