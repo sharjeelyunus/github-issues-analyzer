@@ -5,6 +5,27 @@ tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 model = AutoModelForSequenceClassification.from_pretrained(
     "distilbert-base-uncased", num_labels=3
 )
+from fuzzywuzzy import process
+
+def get_fuzzy_metric(labels, mapping, threshold=80):
+    """
+    Determine priority based on fuzzy matching against a flexible list of possible labels.
+
+    Args:
+        labels (list): A list of labels from the issue.
+        mapping (dict): A dictionary with priority levels as keys and possible labels as values.
+        threshold (int): The similarity threshold (0-100) for fuzzy matching.
+
+    Returns:
+        str or None: The determined priority level or None if no match is found.
+    """
+    for label in labels:
+        normalized_label = label.lower()
+        for priority, keywords in mapping.items():
+            match, score = process.extractOne(normalized_label, keywords)
+            if score >= threshold:
+                return priority
+    return None
 
 
 def get_issue_metric(labels, mapping):
