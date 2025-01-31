@@ -1,13 +1,11 @@
-from libs.dataset.dataset.utils import (
-    compute_engagement_metric,
-    get_issue_metric,
-    predict_with_model,
-)
+from libs.dataset.dataset.utils import compute_engagement_metric, get_issue_metric
+import re
 
 
 def get_severity_from_content(title, body):
     """
     Determine severity based on keywords in the title or body.
+    Uses case-insensitive search and word boundaries for better matching.
     """
     high_severity_keywords = [
         "crash",
@@ -18,17 +16,45 @@ def get_severity_from_content(title, body):
         "error",
         "failure",
         "failed",
+        "corrupt",
+        "freeze",
+        "unstable",
     ]
-    medium_severity_keywords = ["performance", "slow", "delay"]
-    low_severity_keywords = ["typo", "minor", "cosmetic", "UI improvement"]
+    medium_severity_keywords = [
+        "performance",
+        "slow",
+        "delay",
+        "lag",
+        "high latency",
+        "memory leak",
+    ]
+    low_severity_keywords = [
+        "typo",
+        "minor",
+        "cosmetic",
+        "UI improvement",
+        "grammar",
+        "misspelled",
+    ]
 
     content = f"{title} {body}".lower()
-    if any(keyword in content for keyword in high_severity_keywords):
+
+    if any(
+        re.search(rf"\b{re.escape(keyword)}\b", content)
+        for keyword in high_severity_keywords
+    ):
         return "Critical"
-    elif any(keyword in content for keyword in medium_severity_keywords):
+    elif any(
+        re.search(rf"\b{re.escape(keyword)}\b", content)
+        for keyword in medium_severity_keywords
+    ):
         return "Major"
-    elif any(keyword in content for keyword in low_severity_keywords):
+    elif any(
+        re.search(rf"\b{re.escape(keyword)}\b", content)
+        for keyword in low_severity_keywords
+    ):
         return "Minor"
+
     return None
 
 
@@ -69,4 +95,4 @@ def determine_severity(issue):
     if severity_from_engagement:
         return severity_from_engagement
 
-    return predict_with_model(issue, {0: "Minor", 1: "Major", 2: "Critical"})
+    return None

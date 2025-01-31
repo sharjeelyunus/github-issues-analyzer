@@ -9,19 +9,20 @@ model = AutoModelForSequenceClassification.from_pretrained(
 
 def get_issue_metric(labels, mapping):
     """
-    Determine an issue metric (e.g., priority or severity) based on its labels.
+    Determine an issue metric (e.g., priority or severity) based on a partial match in its labels.
 
     Args:
         labels (list): A list of labels associated with the issue.
-        mapping (dict): A dictionary mapping label names (case-insensitive) to metric values.
+        mapping (dict): A dictionary mapping label keywords (case-insensitive) to metric values.
 
     Returns:
-        str or None: The determined metric value, or None if no matching label is found.
+        str or None: The determined metric value, or None if no matching keyword is found.
     """
     for label in labels:
         normalized_label = label.lower()
-        if normalized_label in mapping:
-            return mapping[normalized_label]
+        for key in mapping:
+            if key in normalized_label:
+                return mapping[key]
     return None
 
 

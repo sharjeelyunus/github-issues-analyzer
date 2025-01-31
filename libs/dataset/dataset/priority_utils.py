@@ -1,8 +1,70 @@
-from libs.dataset.dataset.utils import (
-    compute_engagement_metric,
-    get_issue_metric,
-    predict_with_model,
-)
+from libs.dataset.dataset.utils import compute_engagement_metric, get_issue_metric
+import re
+
+
+def get_priority_from_content(title, body):
+    """
+    Determine priority based on keywords in the title or body.
+    Uses case-insensitive search and word boundaries for better matching.
+    """
+    high_priority_keywords = [
+        "urgent",
+        "critical",
+        "immediately",
+        "p0",
+        "high priority",
+        "severe",
+        "must fix",
+        "showstopper",
+        "blocker",
+        "breaking",
+        "down",
+        "does not work",
+        "fails completely",
+        "security risk",
+        "unusable",
+    ]
+    medium_priority_keywords = [
+        "moderate",
+        "p1",
+        "medium priority",
+        "degraded performance",
+        "intermittent failure",
+        "affects usability",
+        "causes issues",
+        "affects multiple users",
+    ]
+    low_priority_keywords = [
+        "low priority",
+        "p2",
+        "nice to have",
+        "cosmetic issue",
+        "minor inconvenience",
+        "does not affect functionality",
+        "small glitch",
+        "aesthetic",
+        "trivial",
+    ]
+
+    content = f"{title} {body}".lower()
+
+    if any(
+        re.search(rf"\b{re.escape(keyword)}\b", content)
+        for keyword in high_priority_keywords
+    ):
+        return "High"
+    elif any(
+        re.search(rf"\b{re.escape(keyword)}\b", content)
+        for keyword in medium_priority_keywords
+    ):
+        return "Medium"
+    elif any(
+        re.search(rf"\b{re.escape(keyword)}\b", content)
+        for keyword in low_priority_keywords
+    ):
+        return "Low"
+
+    return None
 
 
 def determine_priority(issue):
@@ -29,13 +91,20 @@ def determine_priority(issue):
     priority_from_engagement = compute_engagement_metric(
         issue,
         {
-            100: "high",
-            30: "medium",
-            5: "low",
+            50: "high",
+            10: "medium",
+            0: "low",
         },
     )
     if priority_from_engagement:
         return priority_from_engagement
 
-    # Predict priority using AI if no other methods work
-    return predict_with_model(issue, {0: "low", 1: "medium", 2: "high"})
+    if issue.get("title") or issue.get("body"):
+        # Determine priority from content
+        priority_from_content = get_priority_from_content(
+            issue.get("title", ""), issue.get("body", "")
+        )
+        if priority_from_content:
+            return priority_from_content
+
+    return None

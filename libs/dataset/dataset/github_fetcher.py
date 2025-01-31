@@ -1,15 +1,19 @@
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from datetime import datetime, timedelta
+from tqdm import tqdm  # Progress bar
+
 
 class GitHubFetcher:
     BASE_URL = "https://api.github.com"
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, max_workers=10):
         self.headers = {
             "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"  # Request minimal response format
+            "Accept": "application/vnd.github.v3+json",
         }
+        self.max_workers = max_workers
 
     def fetch_top_repositories(self, count: int = 10):
         """
@@ -20,7 +24,7 @@ class GitHubFetcher:
             "q": "stars:>0",
             "sort": "stars",
             "order": "desc",
-            "per_page": count
+            "per_page": count,
         }
         response = requests.get(url, headers=self.headers, params=params)
         if response.status_code != 200:
@@ -31,67 +35,62 @@ class GitHubFetcher:
         """
         Fetch a single page of issues for a repository.
         """
+        one_year_ago = (datetime.utcnow() - timedelta(days=365)).isoformat() + "Z"
         url = f"{self.BASE_URL}/repos/{repo}/issues"
         params = {
-            "state": "open",
+            "state": "all",
+            "since": one_year_ago,
             "per_page": 100,
-            "page": page
+            "page": page,
         }
+
         response = requests.get(url, headers=self.headers, params=params)
-        if response.status_code == 403:  # Rate limit exceeded
-            print("Rate limit exceeded. Retrying after delay...")
-            time.sleep(10)  # Backoff and retry
+
+        if response.status_code == 403:
+            print("⚠️ Rate limit exceeded. Retrying in 60 seconds...")
+            time.sleep(60)
             return self._fetch_page(repo, page)
         elif response.status_code != 200:
-            raise Exception(f"Failed to fetch issues for {repo}, page {page}: {response.json()}")
+            return []
+
         return response.json()
 
-    def fetch_issues(self, repo: str):
+    def fetch_all_pages(self, repo: str):
         """
-        Fetch all open issues for a given repository using parallel pagination.
+        Fetch all pages of issues for a repository in parallel.
         """
-        # Step 1: Fetch the first page to determine the total number of issues
-        first_page_issues = self._fetch_page(repo, 1)
-        total_pages = 1
-        if len(first_page_issues) == 100:
-            # Estimate the total number of pages
-            url = f"{self.BASE_URL}/repos/{repo}"
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 200:
-                total_issues = response.json().get("open_issues_count", 0)
-                total_pages = -(-total_issues // 100)  # Ceiling division
-            else:
-                print(f"Failed to estimate total pages for {repo}: {response.json()}")
+        all_issues = []
+        page = 1
 
-        # Step 2: Fetch remaining pages in parallel
-        all_issues = first_page_issues
-        if total_pages > 1:
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = {executor.submit(self._fetch_page, repo, page): page for page in range(2, total_pages + 1)}
-                for future in as_completed(futures):
-                    try:
-                        page_issues = future.result()
-                        all_issues.extend(page_issues)
-                    except Exception as e:
-                        print(f"Failed to fetch page {futures[future]} for {repo}: {e}")
+        while True:
+            page_issues = self._fetch_page(repo, page)
+            if not page_issues:
+                break
+            all_issues.extend(page_issues)
+            page += 1
 
         return all_issues
 
-    def fetch_issues_concurrently(self, repos: list, max_workers=5):
+    def fetch_issues_concurrently(self, repos: list):
         """
-        Fetch issues for multiple repositories concurrently.
+        Fetch all issues for multiple repositories concurrently with a loading indicator.
         """
         all_issues = []
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(self.fetch_issues, repo["full_name"]): repo for repo in repos}
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor, tqdm(
+            total=len(repos), desc="Fetching issues", unit="repo"
+        ) as pbar:
+            futures = {
+                executor.submit(self.fetch_all_pages, repo["full_name"]): repo
+                for repo in repos
+            }
             for future in as_completed(futures):
                 repo = futures[future]
                 try:
                     raw_issues = future.result()
-                    print(f"Fetched {len(raw_issues)} issues from {repo['full_name']}")
-                    for issue in raw_issues:
-                        issue["repo"] = repo["full_name"]
                     all_issues.extend(raw_issues)
                 except Exception as e:
-                    print(f"Failed to fetch issues for {repo['full_name']}: {e}")
+                    print(f"❌ Failed to fetch issues for {repo['full_name']}: {e}")
+                pbar.update(1)
+
+        print(f"📊 Total issues fetched across all repositories: {len(all_issues)}")
         return all_issues
