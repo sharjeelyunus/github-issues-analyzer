@@ -1,4 +1,4 @@
-from libs.dataset.dataset.utils import compute_engagement_metric, get_issue_metric
+from libs.dataset.dataset.utils import compute_engagement_metric, get_fuzzy_metric, get_issue_metric
 import re
 
 
@@ -63,17 +63,13 @@ def determine_severity(issue):
     Determine the severity of an issue using multiple factors.
     """
     labels = [label["name"] for label in issue.get("labels", [])]
-    severity_mapping = {
-        "severity: critical": "Critical",
-        "critical": "Critical",
-        "blocker": "Critical",
-        "severity: major": "Major",
-        "major": "Major",
-        "severity: minor": "Minor",
-        "minor": "Minor",
-        "trivial": "Minor",
+    severity_keywords = {
+        "Critical": ["severity: critical", "critical", "blocker", "sev1"],
+        "Major": ["severity: major", "major", "sev2"],
+        "Minor": ["severity: minor", "minor", "trivial", "sev3"]
     }
-    severity_from_labels = get_issue_metric(labels, severity_mapping)
+
+    severity_from_labels = get_fuzzy_metric(labels, severity_keywords)
 
     if severity_from_labels:
         return severity_from_labels

@@ -30,3 +30,6 @@ results
 bert-base-uncased
 models
 github_issues_dataset.parquet
+issues.db
+issues.db-shm
+issues.db-wal

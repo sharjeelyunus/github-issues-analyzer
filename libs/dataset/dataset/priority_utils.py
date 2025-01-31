@@ -1,4 +1,4 @@
-from libs.dataset.dataset.utils import compute_engagement_metric, get_issue_metric
+from libs.dataset.dataset.utils import compute_engagement_metric, get_fuzzy_metric
 import re
 
 
@@ -72,18 +72,21 @@ def determine_priority(issue):
     Determine the priority of an issue using multiple factors.
     """
     labels = [label["name"] for label in issue.get("labels", [])]
-    priority_mapping = {
-        "priority: high": "high",
-        "priority: medium": "medium",
-        "priority: low": "low",
-        "p0": "high",
-        "p1": "medium",
-        "p2": "low",
-        "critical": "high",
-        "urgent": "high",
+    priority_keywords = {
+        "high": [
+            "priority::high",
+            "priority: high",
+            "p0",
+            "critical",
+            "urgent",
+            "blocker",
+        ],
+        "medium": ["priority::medium", "priority: medium", "p1", "moderate"],
+        "low": ["priority::low", "priority: low", "p2", "minor", "trivial"],
     }
+
     # Determine priority from labels
-    priority_from_labels = get_issue_metric(labels, priority_mapping)
+    priority_from_labels = get_fuzzy_metric(labels, priority_keywords)
     if priority_from_labels:
         return priority_from_labels
 

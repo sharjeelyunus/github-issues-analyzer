@@ -15,7 +15,7 @@ ZERO_SHOT_MODEL = "facebook/bart-large-mnli"
 
 LABELS_MODEL_DIR = "models/label_prediction_model_v1"
 PRIORITY_SEVERITY_MODEL_DIR = "models/priority_severity_model_v1"
-DATASET_REPOS_COUNT = 20
+DATASET_REPOS_COUNT = 200
 
 API_HOST = "127.0.0.1"
 API_PORT = 8000
