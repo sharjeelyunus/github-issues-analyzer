@@ -47,7 +47,7 @@ def process_issue(issue_with_id):
     # Ensure issue has enough engagement
     num_comments = issue.get("comments", 0)
     num_reactions = issue.get("reactions", {}).get("total_count", 0)
-    if num_comments < 1 or num_reactions < 5:
+    if num_comments <= 1 or num_reactions <= 1:
         return None
 
     # Validate text

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKENS").split(",")[0] if os.getenv("GITHUB_TOKENS") else os.getenv("GITHUB_TOKEN")
 GITHUB_TOKENS = os.getenv("GITHUB_TOKENS").split(",") if os.getenv("GITHUB_TOKENS") else [GITHUB_TOKEN]
 REPO_OWNER = os.getenv("REPO_OWNER")
 REPO_NAME = os.getenv("REPO_NAME")
@@ -16,6 +16,7 @@ ZERO_SHOT_MODEL = "facebook/bart-large-mnli"
 LABELS_MODEL_DIR = "models/label_prediction_model_v1"
 PRIORITY_SEVERITY_MODEL_DIR = "models/priority_severity_model_v1"
 DATASET_REPOS_COUNT = 200
-
 API_HOST = "127.0.0.1"
 API_PORT = 8000
+TOP_REPOS_FILE = "top_repos.json"
+RAW_ISSUES_FILE="raw_issues.parquet"

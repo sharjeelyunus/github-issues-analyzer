@@ -33,3 +33,5 @@ github_issues_dataset.parquet
 issues.db
 issues.db-shm
 issues.db-wal
+raw_issues.jsonl
+top_repos.json
