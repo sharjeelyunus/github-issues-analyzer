@@ -3,4 +3,4 @@ uvicorn
 requests
 sentence-transformers
 torch
-dotenv
+python-dotenv
