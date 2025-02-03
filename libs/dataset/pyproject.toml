@@ -13,6 +13,7 @@ dependencies = [
     "requests",
     "langdetect",
     "python-dotenv",
+    "fuzzywuzzy",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

@@ -19,9 +19,8 @@ jobs:
       - name: Create .env file
         run: |
           echo "GITHUB_TOKENS=${{ secrets.TOKENS }}" > .env
-          # Add other env variables if needed.
 
-      - name: Install main dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
