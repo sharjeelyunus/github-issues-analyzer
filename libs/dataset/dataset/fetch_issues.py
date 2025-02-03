@@ -6,6 +6,27 @@ import pyarrow.parquet as pq
 from config import DATASET_REPOS_COUNT, GITHUB_TOKENS, RAW_ISSUES_FILE, TOP_REPOS_FILE
 from libs.dataset.dataset.github_fetcher import GitHubFetcher
 
+def write_parquet_in_batches(data, output_file, batch_size=100000):
+    """
+    Writes a list of dictionaries to a Parquet file in batches.
+    
+    Args:
+        data (list): List of dictionaries (raw issues).
+        output_file (str): The Parquet file path.
+        batch_size (int): Number of records to process at a time.
+    """
+    writer = None
+    total_records = len(data)
+    for i in range(0, total_records, batch_size):
+        batch = data[i: i+batch_size]
+        table = pa.Table.from_pylist(batch)
+        if writer is None:
+            writer = pq.ParquetWriter(output_file, table.schema, compression="snappy")
+        writer.write_table(table)
+        print(f"Wrote records {i} to {min(i+batch_size, total_records)}")
+    if writer:
+        writer.close()
+
 def fetch_and_store_issues():
     start_time = time.time()
 
@@ -13,13 +34,11 @@ def fetch_and_store_issues():
 
     # Check if the top repositories file exists.
     if os.path.exists(TOP_REPOS_FILE):
-        # Load top repositories from the file.
         print(f"📂 Loading top repositories from `{TOP_REPOS_FILE}`...")
         with open(TOP_REPOS_FILE, "r", encoding="utf-8") as f:
             top_repos = json.load(f)
         print(f"✅ Loaded {len(top_repos)} top repositories from file.")
     else:
-        # Fetch the top repositories and save them.
         print("Fetching top repositories...")
         top_repos = fetcher.fetch_top_repositories(count=DATASET_REPOS_COUNT)
         print(f"✅ Fetched {len(top_repos)} repositories.")
@@ -32,28 +51,19 @@ def fetch_and_store_issues():
     raw_issues = fetcher.fetch_issues_concurrently(top_repos)
     print(f"✅ Fetched {len(raw_issues)} raw issues.")
 
-    # If raw_issues is a nested list, flatten it.
+    # Flatten the list if raw_issues is nested.
     if raw_issues and isinstance(raw_issues[0], list):
         raw_issues = [issue for repo_issues in raw_issues for issue in repo_issues]
 
-    # Convert the list of dictionaries to a PyArrow Table.
+    # Write the data to a Parquet file in batches to avoid memory issues.
     try:
-        table = pa.Table.from_pylist(raw_issues)
-    except Exception as e:
-        print(f"❌ Error converting raw issues to a table: {e}")
-        return
-
-    # Write the table to a Parquet file with Snappy compression.
-    try:
-        pq.write_table(table, RAW_ISSUES_FILE, compression="snappy")
+        write_parquet_in_batches(raw_issues, RAW_ISSUES_FILE, batch_size=100000)
         print(f"📂 Stored raw issues in Parquet format at `{RAW_ISSUES_FILE}`.")
     except Exception as e:
         print(f"❌ Error writing Parquet file: {e}")
 
-    # Time tracking.
     total_time = time.time() - start_time
     print(f"⏳ Fetching completed in {total_time:.2f} seconds.")
-
 
 if __name__ == "__main__":
     fetch_and_store_issues()
