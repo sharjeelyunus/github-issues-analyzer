@@ -2,3 +2,4 @@ requests
 langdetect
 python-dotenv
 fuzzywuzzy
+pyarrow

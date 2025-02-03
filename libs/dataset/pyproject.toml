@@ -14,6 +14,7 @@ dependencies = [
     "langdetect",
     "python-dotenv",
     "fuzzywuzzy",
+    "pyarrow",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
