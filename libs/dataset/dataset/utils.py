@@ -1,12 +1,3 @@
-import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-model = AutoModelForSequenceClassification.from_pretrained(
-    "distilbert-base-uncased", num_labels=3
-)
-from fuzzywuzzy import process
-
 def get_fuzzy_metric(labels, mapping, threshold=80):
     """
     Determine priority based on fuzzy matching against a flexible list of possible labels.
@@ -19,6 +10,8 @@ def get_fuzzy_metric(labels, mapping, threshold=80):
     Returns:
         str or None: The determined priority level or None if no match is found.
     """
+    from fuzzywuzzy import process
+
     for label in labels:
         normalized_label = label.lower()
         for priority, keywords in mapping.items():
@@ -73,41 +66,3 @@ def compute_engagement_metric(issue, mapping, comment_weight=2, reaction_weight=
 
     return None
 
-
-def predict_with_model(issue, mapping, max_length=512):
-    """
-    Predict a metric (e.g., priority or severity) using a lightweight model (e.g., DistilBERT) with truncation.
-
-    Args:
-        issue (dict): The issue data containing 'title' and 'body'.
-        mapping (dict): A dictionary mapping model output classes to labels.
-        model: The trained model for prediction.
-        tokenizer: The tokenizer corresponding to the model.
-        max_length (int, optional): Maximum length for tokenization. Default is 512.
-
-    Returns:
-        str or None: The predicted label based on the mapping, or None if text is empty.
-    """
-    # Combine title and body for prediction
-    text = f"{issue.get('title', '')} {issue.get('body', '')}".strip()
-    if not text:
-        return None
-
-    # Tokenize the text with truncation
-    inputs = tokenizer(
-        text,
-        max_length=max_length,
-        truncation=True,
-        padding="max_length",
-        return_tensors="pt",
-    )
-
-    # Use the model to make predictions
-    with torch.no_grad():
-        outputs = model(**inputs)
-        logits = outputs.logits
-        probabilities = torch.sigmoid(logits).squeeze()
-
-    # Map model outputs to labels
-    predicted_class = probabilities.argmax().item()
-    return mapping.get(predicted_class, None)

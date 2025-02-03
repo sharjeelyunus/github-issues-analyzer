@@ -3,3 +3,4 @@ langdetect
 python-dotenv
 fuzzywuzzy
 pyarrow
+tqdm
